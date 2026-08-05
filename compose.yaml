@@ -12,7 +12,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-}
       PLUXEL_WORKBENCH: ${PLUXEL_WORKBENCH:-true}
-      RHYTHM_REQUIRE_POSTGRES: ${RHYTHM_REQUIRE_POSTGRES:-false}
+      RHYTHM_REQUIRE_POSTGRES: ${RHYTHM_REQUIRE_POSTGRES:-true}
       RHYTHM_FIX_OWNERSHIP: ${RHYTHM_FIX_OWNERSHIP:-false}
     volumes:
       - ${RHYTHM_DATA_DIR:-./data}:/var/lib/rhythm
@@ -21,7 +21,6 @@ services:
       - ${RHYTHM_HOST_BIND:-127.0.0.1}:${RHYTHM_HOST_PORT:-3311}:3311
 
   gateway:
-    profiles: [gateway]
     image: ${RHYTHM_GATEWAY_IMAGE:-ghcr.io/pluxeljs/rhythm-gateway:latest}
     platform: linux/amd64
     restart: unless-stopped

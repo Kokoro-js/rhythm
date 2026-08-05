@@ -1,75 +1,111 @@
-<div align="center">
+# Rhythm 标准自部署
 
-# 🎵 Rhythm
+这是 Rhythm 唯一维护的 Docker Compose 部署包。标准拓扑始终同时启动：
 
-### 为 KOOK、Discord 与 TeamSpeak 打造的多人协作点歌机
+- `rhythm` backend：宿主机 `127.0.0.1:3311`，包含业务 API 与私有 Pluxel Workbench；
+- `gateway`：宿主机 `127.0.0.1:3310`，提供内置 SPA、公开 `/streamer/*` 并隔离管理面。
 
-跨平台语音播放、丰富音乐来源、持久歌单与现代 Web 控制台，一套 Rhythm 即可覆盖多个社区。
+Gateway 不只是一个可选前端容器，也是公网 API 的安全边界，因此默认部署没有 frontend/profile 开关。
 
-[**🚀 自部署**](deploy/README.md) · [**💬 KOOK 反馈频道**](https://kook.vip/x7hj8m)
+## 启动
 
-</div>
+在 Linux x86-64 服务器安装 Docker Engine 与 Docker Compose plugin，然后进入本目录：
 
-![Rhythm Web 控制台](assets/介绍图.png)
+```sh
+cp .env.example .env
+mkdir -p data music
+# 编辑 .env：生产环境填写 DATABASE_URL，并把两个镜像固定为同一个版本
+docker compose pull
+docker compose up -d --wait
+docker compose ps
+```
 
-## ✨ 功能亮点
+生产环境必须配置独立 PostgreSQL：
 
-### 🎙️ 三大语音平台
+```dotenv
+DATABASE_URL=postgresql://rhythm:PASSWORD@db.example.com:5432/rhythm?sslmode=verify-full
+RHYTHM_REQUIRE_POSTGRES=true
+```
 
-- 🟣 **KOOK**：语音频道播放、聊天命令、房间邀请与公共治理交互。
-- 🔵 **Discord**：Slash Command、原生语音播放与房间控制。
-- 🔷 **TeamSpeak（实验性）**：Client、语音与命令集成，适合自有服务器场景。
-- 🔗 同一个 Rhythm 房间可以绑定不同平台账号，队列与成员关系保持一致。
+默认会在缺少 `DATABASE_URL` 时拒绝启动。只有明确的本机/demo 部署才设置
+`RHYTHM_REQUIRE_POSTGRES=false`，使用 `data/` 中的持久 PGlite。生产还应将 `RHYTHM_IMAGE` 与
+`RHYTHM_GATEWAY_IMAGE` 固定为同一个 release 或 `sha-*` 标签。
 
-### 🎼 丰富的音乐来源
+## 公网入口
 
-- 网易云音乐、QQ 音乐、酷狗音乐、汽水音乐与 Bilibili。
-- 本地曲库与安全的 HTTP(S) 音频直链、电台和直播流。
-- 支持歌曲、歌单、专辑、电台与节目链接识别，并可在 Web 中扫码登录音乐账号。
-- 多语言歌词、逐行时间轴、罗马音与翻译展示。
+公网只暴露一个 HTTPS 域名，并将整站转发到 Gateway：
 
-### 👥 多人房间与协作歌单
+```text
+https://music.example.com
+  └─ 外层 TLS/Nginx
+       └─ http://127.0.0.1:3310
+            ├─ /、/r/*：内置 SPA 与 history fallback
+            ├─ /assets/*：静态资源
+            ├─ /streamer/*：业务 API、RPC 与事件流
+            ├─ /__pluxel/*：固定 404
+            └─ /_gateway/health：Gateway 健康检查
+```
 
-- 房主、长期成员与临时访客共同管理播放和队列。
-- 一次性邀请、跨平台账号绑定、登录设备管理与访问撤销。
-- 固定歌单最多 500 首，可配置至 1,000 首；另有最多 5 首的优先播放队列。
-- 拖拽排序、批量移除、歌单导入导出与浏览器本地保存。
+外层 Nginx 不需要按路径拆分，也不要代理 `3311`：
 
-### 🎛️ 完整播放体验
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3310;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
 
-- 播放、暂停、切歌、进度跳转、音量、增益和多种循环模式。
-- 桌面与移动端共用响应式 Web 控制台，实时同步播放状态、队列和在线成员。
-- 播放 checkpoint、房间队列与语音绑定持久化；服务重启后可恢复播放现场。
-- 原生解码与 Opus 编码链路，为 KOOK RTP/RTCP、Discord 和 TeamSpeak 提供稳定媒体输出。
+内置前端支持 `/r/<roomId>` 等客户端路由的直接访问和刷新。前端路由应避开 Gateway 保留的
+`/streamer`、`/__pluxel`、`/_gateway/health` 和 `/assets` 命名空间。
 
-### 🖥️ Dashboard-first 自部署
+## 使用其他前端
 
-- 容器启动后，通过 Workbench 网页后台完成 Bot、音乐账号、插件启停与业务配置。
-- 音乐平台支持网页扫码登录，Bot token 与账号凭据由 Vault 保存，无需塞进环境变量。
-- `.env` 只保留镜像版本、监听端口、数据目录和可选数据库等少量部署边界。
-- 插件状态、在线 Bot、实时日志和运行诊断集中展示，日常维护不需要进入容器。
+不使用内置前端也不影响 Gateway。其他位置部署的 Rhythm 前端在“添加服务器”中填写 Gateway 的公网根地址：
 
-![Rhythm 自部署 Workbench 后台](assets/自部署后台图片.png)
+```text
+https://music.example.com
+```
 
-### 🛡️ 安全与可靠性
+不要追加 `/streamer`；前端会自行请求 `https://music.example.com/streamer/*`。在 Workbench 的
+`RhythmApiPlugin.allowedOrigins` 中逐项填写外部前端的精确 HTTPS origin，例如：
 
-- backend 与 Web gateway 分离，公开站点不会暴露管理面。
-- PostgreSQL 可选；默认可使用随数据目录持久化的 PGlite。
-- 健康检查、自动重连、空频道回收、来源失败诊断与安全直链治理。
+```json
+[
+  "https://player.example.net",
+  "https://music.example.org"
+]
+```
 
-## 🚀 自部署
+不要填写 `*`、路径或 API 地址。Gateway 自带前端与 API 同源，不需要加入这个列表。使用 KOOK 分享链接时，
+`KookRhythmPlugin.publicBaseUrl` 应填写实际供用户打开的前端首页地址。
 
-Rhythm 提供 Linux x86-64 官方 Docker 镜像和独立 Compose 部署包。
+## Workbench
 
-### [👉 打开完整自部署指南](deploy/README.md)
+Workbench 只通过 SSH 隧道访问：
 
-## 💬 交流与反馈
+```sh
+ssh -N -L 3311:127.0.0.1:3311 user@server
+```
 
-使用问题、功能建议和部署反馈可以前往 [KOOK 反馈频道](https://kook.vip/x7hj8m)。
+打开 `http://127.0.0.1:3311/__pluxel/workbench/` 完成 Bot、音乐来源、`allowedOrigins` 和
+`publicBaseUrl` 配置。Bot token、音乐账号、插件启停与业务配置由 Workbench 和 Vault 管理；不要将 3311 暴露到公网。
 
-## 🗃️ 旧版源码
+## 备份与升级
 
-[`voice_sender/`](voice_sender/) 保存 Rhythm 早期的开源 C++ 实现，供历史研究和二次开发。它不是新版镜像的
-构建来源，也不能与新版的数据、配置或部署包混用。
+备份 `.env`、完整 `RHYTHM_DATA_DIR` 和外部 PostgreSQL；`RHYTHM_MUSIC_DIR` 是只读本地曲库。不要让两个
+backend 容器同时写同一个数据目录。
 
-旧代码的许可证与维护记录以 [`voice_sender/LICENSE`](voice_sender/LICENSE) 和提交历史为准。
+升级前先备份，将两个镜像改为相同的新版本，然后运行：
+
+```sh
+docker compose pull
+docker compose up -d --wait
+docker compose ps
+```
+
+回滚时恢复对应备份，并将两个镜像一起改回原版本。
