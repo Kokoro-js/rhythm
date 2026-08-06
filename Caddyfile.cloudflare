@@ -1,0 +1,7 @@
+{$RHYTHM_DOMAIN} {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+	reverse_proxy gateway:8080
+}

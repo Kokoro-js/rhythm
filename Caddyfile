@@ -1,0 +1,4 @@
+{$RHYTHM_DOMAIN} {
+	{$RHYTHM_CADDY_TLS_DIRECTIVE}
+	reverse_proxy gateway:8080
+}
