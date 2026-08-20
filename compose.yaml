@@ -11,10 +11,8 @@ services:
       - host.docker.internal:host-gateway
     environment:
       DATABASE_URL: ${DATABASE_URL:-}
-      PLUXEL_CONFIG__DiscordRhythmPlugin__config__publicBaseUrl: '${RHYTHM_PUBLIC_SCHEME:-https}://${RHYTHM_DOMAIN:?set RHYTHM_DOMAIN to the public hostname}:${RHYTHM_PUBLIC_PORT:-31083}'
-      PLUXEL_CONFIG__KookRhythmPlugin__config__publicBaseUrl: '${RHYTHM_PUBLIC_SCHEME:-https}://${RHYTHM_DOMAIN:?set RHYTHM_DOMAIN to the public hostname}:${RHYTHM_PUBLIC_PORT:-31083}'
-      PLUXEL_CONFIG__RhythmApiPlugin__config__allowedOrigins: '${RHYTHM_ALLOWED_ORIGINS:-[]}'
-      PLUXEL_CONFIG__TeamSpeakRhythmPlugin__config__publicBaseUrl: '${RHYTHM_PUBLIC_SCHEME:-https}://${RHYTHM_DOMAIN:?set RHYTHM_DOMAIN to the public hostname}:${RHYTHM_PUBLIC_PORT:-31083}'
+      RHYTHM_PUBLIC_BASE_URL: '${RHYTHM_PUBLIC_SCHEME:-https}://${RHYTHM_DOMAIN:?set RHYTHM_DOMAIN to the public hostname}:${RHYTHM_PUBLIC_PORT:-31083}'
+      RHYTHM_ALLOWED_ORIGINS: '${RHYTHM_ALLOWED_ORIGINS:-[]}'
       PLUXEL_WORKBENCH: ${PLUXEL_WORKBENCH:-true}
       RHYTHM_REQUIRE_POSTGRES: ${RHYTHM_REQUIRE_POSTGRES:-true}
       RHYTHM_FIX_OWNERSHIP: ${RHYTHM_FIX_OWNERSHIP:-false}
