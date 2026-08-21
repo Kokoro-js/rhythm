@@ -12,9 +12,8 @@ Workbench 会一起启动。管理员在 Workbench 配置自己的 Bot，用户�
 
 1. Linux x86-64 服务器、Docker Engine 与 Docker Compose plugin；
 2. 托管在 Cloudflare 的域名，A/AAAA 记录指向服务器；不可达的 IPv6 地址不要保留 AAAA；
-3. PostgreSQL database URL；
-4. Cloudflare scoped API Token：仅授予目标 Zone 的 `Zone:Read` 与 `DNS:Edit`，不要使用 Global API Key；
-5. 云安全组、防火墙和 NAT 放行/转发公网 TCP 31083；UDP 31083 仅用于可选 HTTP/3。
+3. Cloudflare scoped API Token：仅授予目标 Zone 的 `Zone:Read` 与 `DNS:Edit`，不要使用 Global API Key；
+4. 云安全组、防火墙和 NAT 放行/转发公网 TCP 31083；UDP 31083 仅用于可选 HTTP/3。
 
 在 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) 创建 Custom Token：Permissions 选择
 `Zone / Zone / Read` 与 `Zone / DNS / Edit`，Zone Resources 只包含 Rhythm 域名所在 Zone。Token 必须保留给
@@ -28,11 +27,10 @@ chmod 600 .env
 mkdir -p data music
 ```
 
-`.env` 顶部三个值必须填写；其余默认值和所有可选字段都已保留在文件中作为配置索引：
+`.env` 顶部两个值必须填写；其余默认值和所有可选字段都已保留在文件中作为配置索引：
 
 ```dotenv
 RHYTHM_DOMAIN=music.example.com
-DATABASE_URL=postgresql://rhythm:PASSWORD@db.example.com:5432/rhythm?sslmode=verify-full
 CF_API_TOKEN=replace-with-scoped-token
 
 COMPOSE_FILE=compose.yaml:compose.https.yaml
@@ -149,11 +147,9 @@ COMPOSE_FILE=compose.yaml
 RHYTHM_PUBLIC_SCHEME=http
 RHYTHM_DOMAIN=127.0.0.1
 RHYTHM_PUBLIC_PORT=3310
-DATABASE_URL=
-RHYTHM_REQUIRE_POSTGRES=false
 ```
 
-PGlite 只适合本机演示。远程 HTTP 页面不会兑换房间入口，生产必须回到可信 HTTPS 与 PostgreSQL。
+远程 HTTP 页面不会兑换房间入口，生产必须回到可信 HTTPS。数据库仍使用同一套本地 SQLite 架构。
 
 ### 离线内网 HTTPS
 
@@ -191,8 +187,9 @@ RHYTHM_ALLOWED_ORIGINS=["https://player.example.net"]
 
 ## 备份与升级
 
-备份权限为 600 的 `.env`、完整 `data/` 和 PostgreSQL；`music/` 是只读本地曲库。不要让两个 backend 同时写同一份
-数据。升级时只改 `RHYTHM_VERSION`，然后：
+备份权限为 600 的 `.env` 和完整 `data/`；`music/` 是只读本地曲库。统一数据库位于
+`data/rhythm.sqlite`，应停止 backend 后备份，或使用 SQLite 在线备份工具取得一致快照。不要让两个
+backend 同时写同一份数据。升级时只改 `RHYTHM_VERSION`，然后：
 
 ```sh
 docker compose pull rhythm gateway
