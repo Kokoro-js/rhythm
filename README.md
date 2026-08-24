@@ -182,8 +182,10 @@ RHYTHM_ALLOWED_ORIGINS=["https://player.example.net"]
 
 ## 环境变量索引
 
-`.env.example` 按“必填 → 标准默认 → 可选高级 → 直接 ACME/内网 CA”排列，并保留 Compose 支持的全部变量及默认值。
-普通部署只修改顶部必填项；需要覆盖端口、路径、镜像、Workbench 或恢复策略时，取消对应注释即可。
+`.env.example` 由 Rhythm host build 的 Pluxel 环境 contract 与这三个 Compose YAML 合成，按“必填 → 标准默认 →
+可选高级 → 直接 ACME/内网 CA”排列。发布门禁会检查 Compose 的全部变量都已进入模板，也会检查每个 Plugin bootstrap
+变量已经被透传、派生或固定在 backend image 中；不要另行维护一份变量清单。普通部署只修改顶部必填项；需要覆盖
+端口、路径、镜像、Workbench 或恢复策略时，取消对应注释即可。
 
 ## 备份与升级
 
