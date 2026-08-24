@@ -12,14 +12,14 @@ services:
         condition: service_healthy
     environment:
       CF_API_TOKEN: '${CF_API_TOKEN:?set a scoped Cloudflare API token for DNS-01}'
-      RHYTHM_DOMAIN: '${RHYTHM_DOMAIN:?set RHYTHM_DOMAIN to the public hostname}'
+      RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to https://hostname:31083}'
     volumes:
       - ./Caddyfile.cloudflare:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
-      - '${RHYTHM_CADDY_BIND:-0.0.0.0}:${RHYTHM_PUBLIC_PORT:-31083}:443'
-      - '${RHYTHM_CADDY_BIND:-0.0.0.0}:${RHYTHM_PUBLIC_PORT:-31083}:443/udp'
+      - '31083:31083'
+      - '31083:31083/udp'
 
 volumes:
   caddy_data:

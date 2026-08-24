@@ -6,16 +6,16 @@ services:
       gateway:
         condition: service_healthy
     environment:
-      RHYTHM_DOMAIN: '${RHYTHM_DOMAIN:?set RHYTHM_DOMAIN to the public hostname}'
+      RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to the exact HTTPS origin}'
       RHYTHM_CADDY_TLS_DIRECTIVE: '${RHYTHM_CADDY_TLS_DIRECTIVE:-}'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
-      - '${RHYTHM_CADDY_BIND:-0.0.0.0}:${RHYTHM_CADDY_HTTP_PORT:-80}:80'
-      - '${RHYTHM_CADDY_BIND:-0.0.0.0}:${RHYTHM_PUBLIC_PORT:-443}:443'
-      - '${RHYTHM_CADDY_BIND:-0.0.0.0}:${RHYTHM_PUBLIC_PORT:-443}:443/udp'
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
 
 volumes:
   caddy_data:
