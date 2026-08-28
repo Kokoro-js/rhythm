@@ -1,6 +1,6 @@
 services:
   caddy:
-    image: ${RHYTHM_CADDY_IMAGE:-docker.io/library/caddy:2.11.4-alpine}
+    image: docker.io/library/caddy:2.11.4-alpine
     restart: unless-stopped
     depends_on:
       gateway:

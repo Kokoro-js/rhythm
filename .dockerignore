@@ -1,0 +1,3 @@
+**
+!.dockerignore
+!Caddy.cloudflare.Dockerfile

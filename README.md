@@ -40,15 +40,18 @@ chmod 600 .env
 mkdir -p data music
 ```
 
-只填写顶部两个空值：
+填写顶部两个空值；镜像版本默认使用 `latest`：
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com:31083
 CF_API_TOKEN=replace-with-scoped-token
+RHYTHM_VERSION=latest
 
 COMPOSE_FILE=compose.yaml:compose.https.yaml
-RHYTHM_VERSION=latest
 ```
+
+`RHYTHM_VERSION` 会同时应用到 backend 和 gateway。保留 `latest` 即可在拉取镜像时跟随最新发布；需要可复现或
+受控升级时，可改为两边都已发布的同一个 release 或 `sha-*` tag。
 
 然后启动：
 
@@ -112,7 +115,8 @@ location / {
     proxy_http_version 1.1;
     proxy_buffering off;
     proxy_read_timeout 3600s;
-    proxy_set_header Host $host;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Host $http_host;
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
@@ -181,9 +185,11 @@ RHYTHM_ALLOWED_ORIGINS=["https://player.example.net"]
 bootstrap 变量已被透传、派生或固定，并保证旧的 split domain/port 变量不会重新出现。
 
 备份权限为 600 的 `.env` 和完整 `data/`；`music/` 是只读本地曲库。统一数据库位于
-`data/rhythm.sqlite`，不要让两个 backend 同时写同一目录。
+`data/rhythm.sqlite`，不要让两个 backend 同时写同一目录。容器启动时会自动对齐 `data/` 内来自宿主机或
+恢复备份的 UID/GID，无需额外的权限修复变量。
 
-升级只修改 `RHYTHM_VERSION`：
+使用默认 `latest` 时，升级不需要修改 `.env`；直接拉取并重建即可。若已锁定版本，则先把
+`RHYTHM_VERSION` 改为 backend 和 gateway 都已发布的同一个新 tag：
 
 ```sh
 docker compose pull rhythm gateway

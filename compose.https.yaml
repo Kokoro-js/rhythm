@@ -3,9 +3,6 @@ services:
     build:
       context: .
       dockerfile: Caddy.cloudflare.Dockerfile
-      args:
-        CADDY_VERSION: ${RHYTHM_CADDY_VERSION:-2.11.4}
-        CADDY_CLOUDFLARE_VERSION: ${RHYTHM_CADDY_CLOUDFLARE_VERSION:-v0.2.4}
     restart: unless-stopped
     depends_on:
       gateway:

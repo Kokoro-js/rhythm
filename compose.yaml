@@ -7,13 +7,10 @@ services:
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
-    extra_hosts:
-      - host.docker.internal:host-gateway
     environment:
       RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to the exact public origin}'
       RHYTHM_ALLOWED_ORIGINS: '${RHYTHM_ALLOWED_ORIGINS:-[]}'
-      PLUXEL_WORKBENCH: ${PLUXEL_WORKBENCH:-true}
-      RHYTHM_FIX_OWNERSHIP: ${RHYTHM_FIX_OWNERSHIP:-false}
+      PLUXEL_WORKBENCH: 'true'
     volumes:
       - ${RHYTHM_DATA_DIR:-./data}:/var/lib/rhythm
       - ${RHYTHM_MUSIC_DIR:-./music}:/music:ro
