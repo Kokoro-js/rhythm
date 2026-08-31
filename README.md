@@ -185,7 +185,7 @@ RHYTHM_ALLOWED_ORIGINS=["https://player.example.net"]
 bootstrap 变量已被透传、派生或固定，并保证旧的 split domain/port 变量不会重新出现。
 
 备份权限为 600 的 `.env` 和完整 `data/`；`music/` 是只读本地曲库。统一数据库位于
-`data/rhythm.sqlite`，不要让两个 backend 同时写同一目录。容器启动时会自动对齐 `data/` 内来自宿主机或
+`data/database/rhythm.sqlite`，不要让两个 backend 同时写同一目录。容器启动时会自动对齐 `data/` 内来自宿主机或
 恢复备份的 UID/GID，无需额外的权限修复变量。
 
 使用默认 `latest` 时，升级不需要修改 `.env`；直接拉取并重建即可。若已锁定版本，则先把
