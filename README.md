@@ -1,15 +1,15 @@
 # Rhythm 标准自部署
 
-这个目录一次启动 Rhythm backend、同版本点歌页面、安全 gateway 和私有 Workbench。公开前端与 API gateway 是两个
-独立 authority；内置前端部署时显式填写为同一个 origin：
+这个目录一次启动 Rhythm backend、同版本点歌页面、安全 gateway 和私有 Workbench。标准内置前端只有一个公开
+origin：
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com:31083
-RHYTHM_GATEWAY_URL=https://music.example.com:31083
 ```
 
-`RHYTHM_PUBLIC_URL` 是 Bot 控制链接打开的前端 origin；`RHYTHM_GATEWAY_URL` 是 Caddy 服务和 API 的公开 origin，
-其 hostname 用于签发证书。两者都必须包含 scheme 和非默认端口，且不包含 credentials、非根路径、query 或 fragment。
+`RHYTHM_PUBLIC_URL` 是 Bot 控制链接、Caddy 站点和 API 同源策略共用的 canonical origin。只有独立前端与 API
+gateway 分域时才设置 `RHYTHM_GATEWAY_URL`。公开 origin 必须包含 scheme 和非默认端口，且不包含 credentials、
+非根路径、query 或 fragment。
 
 内部拓扑不是用户配置：
 
@@ -40,11 +40,10 @@ chmod 600 .env
 mkdir -p data music
 ```
 
-填写顶部三个空值；镜像版本默认使用 `latest`：
+填写顶部两个空值；镜像版本默认使用 `latest`：
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com:31083
-RHYTHM_GATEWAY_URL=https://music.example.com:31083
 CF_API_TOKEN=replace-with-scoped-token
 RHYTHM_VERSION=latest
 
@@ -80,7 +79,6 @@ Cloudflare 橙云或 8443 等其他公开端口，使用已有反代模式：只
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com
-RHYTHM_GATEWAY_URL=https://music.example.com
 COMPOSE_FILE=compose.yaml:compose.https-direct.yaml
 RHYTHM_VERSION=latest
 ```
@@ -100,15 +98,13 @@ docker compose logs --tail=100 gateway
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com
-RHYTHM_GATEWAY_URL=https://music.example.com
 COMPOSE_FILE=compose.yaml
 RHYTHM_VERSION=latest
 ```
 
 运行 `docker compose up -d --wait`，把整个公开站点转发到固定的
-`http://127.0.0.1:3310`。公开入口可以是 443、8443 或其他端口，只要
-`RHYTHM_GATEWAY_URL` 与该入口的浏览器可见 origin 完全一致。内置前端时 `RHYTHM_PUBLIC_URL` 与它相同；不要拆分
-Rhythm path，也不要代理 3311。
+`http://127.0.0.1:3310`。公开入口可以是 443、8443 或其他端口，只要 `RHYTHM_PUBLIC_URL` 与该入口的浏览器可见
+origin 完全一致；不要拆分 Rhythm path，也不要代理 3311。
 
 Nginx 最小配置：
 
@@ -132,9 +128,10 @@ ssh -N -L 3311:127.0.0.1:3311 user@server
 ```
 
 打开 `http://127.0.0.1:3311/__pluxel/workbench/`，保存 Bot token、登录音乐平台并启用所需插件。新数据目录的
-`RHYTHM_PUBLIC_URL` 会初始化 `RhythmWebPolicyPlugin.publicOrigin`，供 KOOK、Discord、TeamSpeak 生成前端控制链接；
-`RHYTHM_GATEWAY_URL` 初始化同一 policy 的 `gatewayOrigin`，供 Rhythm API 校验公开 ingress。之后持久化配置和
-Workbench 成为 authority，修改 `.env` 不会覆盖管理员已经保存的 Plugin 配置，backend 也不从转发头重建 origin。
+`RHYTHM_PUBLIC_URL` 在每次启动时覆盖 `RhythmWebPolicyPlugin.publicOrigin` fallback，供 KOOK、Discord、TeamSpeak
+生成前端控制链接；未设置 `RHYTHM_GATEWAY_URL` 时，API 与 Caddy 自动使用同一 origin。独立前端部署设置 gateway
+变量后，后端会自动把 canonical frontend 加入 CORS。两个 origin 环境值都不存在时才使用 Workbench policy
+fallback；backend 不从转发头重建 origin。
 
 ## 网络边界
 
@@ -155,7 +152,6 @@ Workbench 成为 authority，修改 `.env` 不会覆盖管理员已经保存的 
 
 ```dotenv
 RHYTHM_PUBLIC_URL=http://127.0.0.1:3310
-RHYTHM_GATEWAY_URL=http://127.0.0.1:3310
 COMPOSE_FILE=compose.yaml
 ```
 
@@ -163,7 +159,6 @@ COMPOSE_FILE=compose.yaml
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://rhythm.home.arpa
-RHYTHM_GATEWAY_URL=https://rhythm.home.arpa
 COMPOSE_FILE=compose.yaml:compose.https-direct.yaml
 RHYTHM_CADDY_TLS_DIRECTIVE=tls internal
 ```
@@ -174,12 +169,15 @@ RHYTHM_CADDY_TLS_DIRECTIVE=tls internal
 docker compose cp gateway:/data/caddy/pki/authorities/local/root.crt ./rhythm-local-ca.crt
 ```
 
-只有独立前端需要配置跨域。前端的服务器地址填写 `RHYTHM_GATEWAY_URL`，不追加 `/streamer`；
-`RHYTHM_PUBLIC_URL` 则填写独立前端自身的 origin，同时在 Workbench 的 `RhythmApiPlugin.allowedOrigins` 中加入它。
-新数据目录也可在 `.env` 预置：
+只有独立前端需要拆分 origin。`RHYTHM_PUBLIC_URL` 填独立前端自身的 origin，`RHYTHM_GATEWAY_URL` 填 Caddy/API
+origin；前端的服务器地址使用后者且不追加 `/streamer`。canonical frontend 会自动获得 CORS 授权，
+`RhythmApiPlugin.allowedOrigins` / `RHYTHM_ALLOWED_ORIGINS` 只用于额外站点：
 
 ```dotenv
-RHYTHM_ALLOWED_ORIGINS=["https://player.example.net"]
+RHYTHM_PUBLIC_URL=https://player.example.net
+RHYTHM_GATEWAY_URL=https://music-api.example.com:31083
+# 可选的第三方管理页等额外来源
+RHYTHM_ALLOWED_ORIGINS=["https://another-player.example.org"]
 ```
 
 ## 环境、备份与升级
@@ -202,5 +200,8 @@ docker compose ps
 
 从拆分地址变量的版本升级时，删除
 `RHYTHM_DOMAIN`、`RHYTHM_PUBLIC_PORT`、`RHYTHM_PUBLIC_SCHEME` 以及所有
-`RHYTHM_*_BIND` / `RHYTHM_*_PORT` listener override，改为明确的 `RHYTHM_PUBLIC_URL` 与 `RHYTHM_GATEWAY_URL`。默认 DNS-01
+`RHYTHM_*_BIND` / `RHYTHM_*_PORT` listener override，改为 `RHYTHM_PUBLIC_URL`；只有独立前端才另设
+`RHYTHM_GATEWAY_URL`。从按平台分别配置链接的版本升级时，将 `KookRhythmPlugin.publicBaseUrl`、
+`DiscordRhythmPlugin.publicBaseUrl` 和 `TeamSpeakRhythmPlugin.publicBaseUrl` 中实际使用的页面 origin 搬到
+`RHYTHM_PUBLIC_URL`（或 `RhythmWebPolicyPlugin.publicOrigin` fallback），确认所有平台一致后删除旧字段。默认 DNS-01
 路径固定使用 `:31083`，direct overlay 使用默认 443，其他端口交给已有反向代理。

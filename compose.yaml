@@ -9,7 +9,7 @@ services:
     stop_grace_period: 30s
     environment:
       RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to the exact public origin}'
-      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:?set RHYTHM_GATEWAY_URL to the exact public API gateway origin}'
+      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:-${RHYTHM_PUBLIC_URL}}'
       RHYTHM_ALLOWED_ORIGINS: '${RHYTHM_ALLOWED_ORIGINS:-[]}'
       PLUXEL_WORKBENCH: 'true'
     volumes:
@@ -32,5 +32,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    environment:
+      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:-${RHYTHM_PUBLIC_URL}}'
     ports:
       - '127.0.0.1:3310:3310'

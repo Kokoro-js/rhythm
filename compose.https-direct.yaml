@@ -1,7 +1,6 @@
 services:
   gateway:
     environment:
-      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:?set RHYTHM_GATEWAY_URL to the public gateway HTTPS origin}'
       RHYTHM_CADDY_TLS_DIRECTIVE: '${RHYTHM_CADDY_TLS_DIRECTIVE:-}'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
