@@ -1,7 +1,17 @@
-{$RHYTHM_PUBLIC_URL} {
+{
+	persist_config off
+}
+
+import /etc/caddy/rhythm-gateway.caddy
+
+:3310 {
+	import rhythm_gateway
+}
+
+{$RHYTHM_GATEWAY_URL} {
 	tls {
 		dns cloudflare {env.CF_API_TOKEN}
 		resolvers 1.1.1.1
 	}
-	reverse_proxy gateway:3310
+	import rhythm_gateway
 }

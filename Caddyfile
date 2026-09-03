@@ -1,4 +1,16 @@
-{$RHYTHM_PUBLIC_URL} {
+{
+	http_port 3080
+	https_port 3443
+	persist_config off
+}
+
+import /etc/caddy/rhythm-gateway.caddy
+
+:3310 {
+	import rhythm_gateway
+}
+
+{$RHYTHM_GATEWAY_URL} {
 	{$RHYTHM_CADDY_TLS_DIRECTIVE}
-	reverse_proxy gateway:3310
+	import rhythm_gateway
 }

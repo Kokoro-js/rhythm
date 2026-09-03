@@ -9,6 +9,7 @@ services:
     stop_grace_period: 30s
     environment:
       RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to the exact public origin}'
+      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:?set RHYTHM_GATEWAY_URL to the exact public API gateway origin}'
       RHYTHM_ALLOWED_ORIGINS: '${RHYTHM_ALLOWED_ORIGINS:-[]}'
       PLUXEL_WORKBENCH: 'true'
     volumes:

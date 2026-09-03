@@ -1,21 +1,16 @@
 services:
-  caddy:
-    image: docker.io/library/caddy:2.11.4-alpine
-    restart: unless-stopped
-    depends_on:
-      gateway:
-        condition: service_healthy
+  gateway:
     environment:
-      RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to the exact HTTPS origin}'
+      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:?set RHYTHM_GATEWAY_URL to the public gateway HTTPS origin}'
       RHYTHM_CADDY_TLS_DIRECTIVE: '${RHYTHM_CADDY_TLS_DIRECTIVE:-}'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp'
+      - '80:3080'
+      - '443:3443'
+      - '443:3443/udp'
 
 volumes:
   caddy_data:

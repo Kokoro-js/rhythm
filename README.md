@@ -1,15 +1,15 @@
 # Rhythm 标准自部署
 
-这个目录一次启动 Rhythm backend、同版本点歌页面、安全 gateway 和私有 Workbench。部署契约刻意只让管理员描述
-一个公开地址：
+这个目录一次启动 Rhythm backend、同版本点歌页面、安全 gateway 和私有 Workbench。公开前端与 API gateway 是两个
+独立 authority；内置前端部署时显式填写为同一个 origin：
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com:31083
+RHYTHM_GATEWAY_URL=https://music.example.com:31083
 ```
 
-它必须是用户浏览器真正访问的完整 origin：包含 `http://` 或 `https://`，非默认端口必须写出，不包含非根
-路径、query 或 fragment。Caddy 用它选择公开站点，backend 用同一个值初始化 KOOK、Discord 和 TeamSpeak
-控制链接，因此没有另一组 domain、scheme 或 public port 需要同步。
+`RHYTHM_PUBLIC_URL` 是 Bot 控制链接打开的前端 origin；`RHYTHM_GATEWAY_URL` 是 Caddy 服务和 API 的公开 origin，
+其 hostname 用于签发证书。两者都必须包含 scheme 和非默认端口，且不包含 credentials、非根路径、query 或 fragment。
 
 内部拓扑不是用户配置：
 
@@ -40,10 +40,11 @@ chmod 600 .env
 mkdir -p data music
 ```
 
-填写顶部两个空值；镜像版本默认使用 `latest`：
+填写顶部三个空值；镜像版本默认使用 `latest`：
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com:31083
+RHYTHM_GATEWAY_URL=https://music.example.com:31083
 CF_API_TOKEN=replace-with-scoped-token
 RHYTHM_VERSION=latest
 
@@ -57,17 +58,16 @@ COMPOSE_FILE=compose.yaml:compose.https.yaml
 
 ```sh
 docker compose pull rhythm gateway
-docker compose build --pull caddy
 docker compose up -d --wait
 docker compose ps
-docker compose logs --tail=100 caddy
+docker compose logs --tail=100 gateway
 curl -fsS https://music.example.com:31083/_gateway/health
 ```
 
-`Caddy.cloudflare.Dockerfile` 以官方 Caddy builder 构建并固定安装 `caddy-dns/cloudflare`。可确认实际模块：
+发布的 gateway 镜像以官方 Caddy builder 固定安装 `caddy-dns/cloudflare`。可确认实际模块：
 
 ```sh
-docker compose exec caddy caddy list-modules | grep '^dns.providers.cloudflare$'
+docker compose exec gateway caddy list-modules | grep '^dns.providers.cloudflare$'
 ```
 
 任意高端口（包括 31083）的 Cloudflare 记录必须使用 **DNS only / 灰云**，浏览器直接连接服务器。若必须使用
@@ -80,6 +80,7 @@ Cloudflare 橙云或 8443 等其他公开端口，使用已有反代模式：只
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com
+RHYTHM_GATEWAY_URL=https://music.example.com
 COMPOSE_FILE=compose.yaml:compose.https-direct.yaml
 RHYTHM_VERSION=latest
 ```
@@ -87,7 +88,7 @@ RHYTHM_VERSION=latest
 ```sh
 docker compose pull
 docker compose up -d --wait
-docker compose logs --tail=100 caddy
+docker compose logs --tail=100 gateway
 ```
 
 这里 443 是 HTTPS 默认端口，所以公开 URL 不写 `:443`。公网 TCP 80/443 必须能直接到达服务器；UDP 443
@@ -99,13 +100,15 @@ docker compose logs --tail=100 caddy
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://music.example.com
+RHYTHM_GATEWAY_URL=https://music.example.com
 COMPOSE_FILE=compose.yaml
 RHYTHM_VERSION=latest
 ```
 
 运行 `docker compose up -d --wait`，把整个公开站点转发到固定的
 `http://127.0.0.1:3310`。公开入口可以是 443、8443 或其他端口，只要
-`RHYTHM_PUBLIC_URL` 与浏览器实际地址完全一致。不要拆分 Rhythm path，也不要代理 3311。
+`RHYTHM_GATEWAY_URL` 与该入口的浏览器可见 origin 完全一致。内置前端时 `RHYTHM_PUBLIC_URL` 与它相同；不要拆分
+Rhythm path，也不要代理 3311。
 
 Nginx 最小配置：
 
@@ -116,8 +119,6 @@ location / {
     proxy_buffering off;
     proxy_read_timeout 3600s;
     proxy_set_header Host $http_host;
-    proxy_set_header X-Forwarded-Host $http_host;
-    proxy_set_header X-Forwarded-Proto https;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
@@ -131,16 +132,16 @@ ssh -N -L 3311:127.0.0.1:3311 user@server
 ```
 
 打开 `http://127.0.0.1:3311/__pluxel/workbench/`，保存 Bot token、登录音乐平台并启用所需插件。新数据目录的
-`RHYTHM_PUBLIC_URL` 会初始化各 Bot 的 `publicBaseUrl`；之后持久化配置和 Workbench 成为 authority，修改
-`.env` 不会覆盖管理员已经保存的 Plugin 配置。
+`RHYTHM_PUBLIC_URL` 会初始化 `RhythmWebPolicyPlugin.publicOrigin`，供 KOOK、Discord、TeamSpeak 生成前端控制链接；
+`RHYTHM_GATEWAY_URL` 初始化同一 policy 的 `gatewayOrigin`，供 Rhythm API 校验公开 ingress。之后持久化配置和
+Workbench 成为 authority，修改 `.env` 不会覆盖管理员已经保存的 Plugin 配置，backend 也不从转发头重建 origin。
 
 ## 网络边界
 
 ```text
 公网 https://music.example.com:31083
-  └─ Caddy:31083：DNS-01 与 HTTPS
-       └─ gateway:3310：SPA、/streamer/*、Workbench 隔离
-            └─ rhythm:3311：业务 API、Plugin 与私有 Workbench
+  └─ gateway/Caddy：DNS-01、HTTPS、SPA、/streamer/*、Workbench 隔离
+       └─ rhythm:3311：业务 API、Plugin 与私有 Workbench
 
 宿主机 127.0.0.1:3310：已有反代或本机诊断入口
 宿主机 127.0.0.1:3311：SSH 隧道 Workbench 入口
@@ -154,6 +155,7 @@ ssh -N -L 3311:127.0.0.1:3311 user@server
 
 ```dotenv
 RHYTHM_PUBLIC_URL=http://127.0.0.1:3310
+RHYTHM_GATEWAY_URL=http://127.0.0.1:3310
 COMPOSE_FILE=compose.yaml
 ```
 
@@ -161,6 +163,7 @@ COMPOSE_FILE=compose.yaml
 
 ```dotenv
 RHYTHM_PUBLIC_URL=https://rhythm.home.arpa
+RHYTHM_GATEWAY_URL=https://rhythm.home.arpa
 COMPOSE_FILE=compose.yaml:compose.https-direct.yaml
 RHYTHM_CADDY_TLS_DIRECTIVE=tls internal
 ```
@@ -168,11 +171,11 @@ RHYTHM_CADDY_TLS_DIRECTIVE=tls internal
 启动后导出根证书并安装到每台客户端设备：
 
 ```sh
-docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./rhythm-local-ca.crt
+docker compose cp gateway:/data/caddy/pki/authorities/local/root.crt ./rhythm-local-ca.crt
 ```
 
-只有独立前端需要配置跨域。前端的服务器地址直接填写与 `RHYTHM_PUBLIC_URL` 相同的 origin，不追加
-`/streamer`；同时在 Workbench 的 `RhythmApiPlugin.allowedOrigins` 中加入外部前端的精确 HTTPS origin。
+只有独立前端需要配置跨域。前端的服务器地址填写 `RHYTHM_GATEWAY_URL`，不追加 `/streamer`；
+`RHYTHM_PUBLIC_URL` 则填写独立前端自身的 origin，同时在 Workbench 的 `RhythmApiPlugin.allowedOrigins` 中加入它。
 新数据目录也可在 `.env` 预置：
 
 ```dotenv
@@ -193,12 +196,11 @@ bootstrap 变量已被透传、派生或固定，并保证旧的 split domain/po
 
 ```sh
 docker compose pull rhythm gateway
-docker compose build --pull caddy
 docker compose up -d --wait
 docker compose ps
 ```
 
 从拆分地址变量的版本升级时，删除
 `RHYTHM_DOMAIN`、`RHYTHM_PUBLIC_PORT`、`RHYTHM_PUBLIC_SCHEME` 以及所有
-`RHYTHM_*_BIND` / `RHYTHM_*_PORT` listener override，改为一个精确的 `RHYTHM_PUBLIC_URL`。默认 DNS-01
+`RHYTHM_*_BIND` / `RHYTHM_*_PORT` listener override，改为明确的 `RHYTHM_PUBLIC_URL` 与 `RHYTHM_GATEWAY_URL`。默认 DNS-01
 路径固定使用 `:31083`，direct overlay 使用默认 443，其他端口交给已有反向代理。

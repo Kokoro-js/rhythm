@@ -1,15 +1,8 @@
 services:
-  caddy:
-    build:
-      context: .
-      dockerfile: Caddy.cloudflare.Dockerfile
-    restart: unless-stopped
-    depends_on:
-      gateway:
-        condition: service_healthy
+  gateway:
     environment:
       CF_API_TOKEN: '${CF_API_TOKEN:?set a scoped Cloudflare API token for DNS-01}'
-      RHYTHM_PUBLIC_URL: '${RHYTHM_PUBLIC_URL:?set RHYTHM_PUBLIC_URL to https://hostname:31083}'
+      RHYTHM_GATEWAY_URL: '${RHYTHM_GATEWAY_URL:?set RHYTHM_GATEWAY_URL to the public gateway HTTPS origin}'
     volumes:
       - ./Caddyfile.cloudflare:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
