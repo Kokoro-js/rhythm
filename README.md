@@ -121,11 +121,28 @@ location / {
 
 ## 启动后配置 Bot
 
-Workbench 固定只发布到服务器 loopback。先在自己的电脑建立 SSH 隧道：
+Workbench 只接受真实 loopback 管理连接。Docker/Podman 的端口映射可能将宿主 loopback 变成容器网桥地址，
+所以普通 `ssh -L` 到宿主 3311 不能保证可用。通过 SSH 执行容器内的 `socat`，让最后一次连接发生在容器内。
+本机需要 OpenSSH 与 `socat`；backend 镜像已包含 `socat`。SSH 用户须有运行这个 Compose 项目的权限。
+将下列服务器与 `/opt/rhythm` 替换为实际部署位置：
 
 ```sh
-ssh -N -L 3311:127.0.0.1:3311 user@server
+# 建立本次管理专用的 SSH 连接；首次连接可在此确认主机密钥和完成认证。
+ssh -MNf -o ControlPath=~/.ssh/rhythm-admin-%C -o ControlPersist=5m user@server
+
+# 保持前台运行；只监听本机 loopback，不分配终端，也不混入 stderr。
+socat TCP4-LISTEN:3311,bind=127.0.0.1,reuseaddr,fork \
+  "EXEC:ssh -T -o BatchMode=yes -o ControlPath=~/.ssh/rhythm-admin-%C user@server docker compose --project-directory /opt/rhythm exec -T --user node rhythm socat STDIO TCP4\:127.0.0.1\:3311"
 ```
+
+用完后按 Ctrl+C 停止本机转发，再关闭本次管理的 SSH 连接：
+
+```sh
+ssh -o ControlPath=~/.ssh/rhythm-admin-%C -O exit user@server
+```
+
+镜像的 `PLUXEL_PUBLIC_ORIGIN` 默认是 `http://127.0.0.1:3311`，用于管理会话同源校验，和公开业务的
+`RHYTHM_PUBLIC_URL` 分别配置。不要把 bridge 网段视作 loopback，也不要通过转发头绕过物理连接校验。
 
 打开 `http://127.0.0.1:3311/__pluxel/workbench/`，保存 Bot token、登录音乐平台并启用所需插件。新数据目录的
 `RHYTHM_PUBLIC_URL` 在每次启动时覆盖 `RhythmWebPolicyPlugin.publicOrigin` fallback，供 KOOK、Discord、TeamSpeak
@@ -141,7 +158,8 @@ fallback；backend 不从转发头重建 origin。
        └─ rhythm:3311：业务 API、Plugin 与私有 Workbench
 
 宿主机 127.0.0.1:3310：已有反代或本机诊断入口
-宿主机 127.0.0.1:3311：SSH 隧道 Workbench 入口
+宿主机 127.0.0.1:3311：私有 API 诊断入口
+Workbench：本机 loopback → SSH exec → 容器内 socat → 容器 loopback:3311
 ```
 
 内置页面与 API 同源，不需要设置 CORS，也不需要在页面中“添加服务器”。不要把 3310 或 3311 直接开放到公网。
